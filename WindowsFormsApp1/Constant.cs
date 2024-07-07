@@ -373,7 +373,7 @@ namespace WindowsFormsApp1
         //** "Symbology" Parameter:
 
         //    - One dimensional symbologies
-        const long PTR_BCS_UPCA = 101;  // Digits
+        /*const long PTR_BCS_UPCA = 101;  // Digits
         const long PTR_BCS_UPCE = 102;  // Digits
         const long PTR_BCS_JAN8 = 103;  // = EAN 8
         const long PTR_BCS_EAN8 = 103;  // = JAN 8 (added in 1.2)
@@ -406,7 +406,7 @@ namespace WindowsFormsApp1
                                            //   barcode
         const long PTR_BCS_EAN128 = 120;  // EAN 128
         const long PTR_BCS_OCRA = 121;  // OCR "A"
-        const long PTR_BCS_OCRB = 122;  // OCR "B"
+        const long PTR_BCS_OCRB = 122;  // OCR "B"*/
 
         //    - One dimensional symbologies (added in 1.8)
         const long PTR_BCS_Code128_Parsed = 123;  // Code 128 with parsing
@@ -599,17 +599,34 @@ namespace WindowsFormsApp1
 
         public static string getState(long value)
         {
-            foreach (var field in typeof(Constant).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy))
+            Dictionary<long, string> stateMap = new Dictionary<long, string>
             {
-                if (field.IsLiteral && !field.IsInitOnly)
-                {
-                    if ((long)field.GetValue(null) == value)
-                    {
-                        return field.Name;
-                    }
-                }
+                {OPOS_SUCCESS ,"OPOS_SUCCESS"}     ,
+                {OPOS_E_CLOSED,"OPOS_E_CLOSED"}     ,
+                {OPOS_E_CLAIMED,"OPOS_E_CLAIMED"}    ,
+                {OPOS_E_NOTCLAIMED ,"OPOS_E_NOTCLAIMED"},
+                {OPOS_E_NOSERVICE  ,"OPOS_E_NOSERVICE"},
+                {OPOS_E_DISABLED,"OPOS_E_DISABLED"}   ,
+                {OPOS_E_ILLEGAL ,"OPOS_E_ILLEGAL"}   ,
+                {OPOS_E_NOHARDWARE ,"OPOS_E_NOHARDWARE"},
+                {OPOS_E_OFFLINE ,"OPOS_E_OFFLINE"}   ,
+                {OPOS_E_NOEXIST ,"OPOS_E_NOEXIST"}   ,
+                {OPOS_E_EXISTS ,"OPOS_E_EXISTS"}    ,
+                {OPOS_E_FAILURE ,"OPOS_E_FAILURE"}   ,
+                {OPOS_E_TIMEOUT ,"OPOS_E_TIMEOUT"}   ,
+                {OPOS_E_BUSY,"OPOS_E_BUSY"}       ,
+                {OPOS_E_EXTENDED,"OPOS_E_EXTENDED"}   ,
+                { OPOS_E_DEPRECATED,"OPOS_E_DEPRECATED"},
+            };
+            if (stateMap.ContainsKey(value))
+            {
+                return stateMap[value];
             }
-            return "Unknown constant";
+            else
+            {
+                return "Unknown constant";
+            }
+
         }
 
 

@@ -10,65 +10,120 @@ namespace WindowsFormsApp1
     public class PrinterEventArgs : EventArgs
     {
         public string Message { get; set; }
+
+    }
+    public class PrinterCoverEventArgs : EventArgs
+    {
+        public bool IsOpen { get; set; }
+
     }
     public delegate void PrinterEventHandler(object sender, PrinterEventArgs e);
-
+    public delegate void PrinterCoverEventHandler(object sender, PrinterCoverEventArgs e);
     public class Printer
     {
-        public event PrinterEventHandler PrinterEvent;
+        public event PrinterCoverEventHandler PrinterCoverEvent;
+        public event EventHandler<PrinterEventArgs> PrinterEvent;
 
+        protected virtual void OnPrinterCoverEvnet(bool isOpen)
+        {
+            PrinterCoverEvent?.Invoke(this, new PrinterCoverEventArgs { IsOpen = isOpen });
+        }
         protected virtual void OnPrinterEvent(string message)
         {
             PrinterEvent?.Invoke(this, new PrinterEventArgs { Message = message });
         }
 
+        private void CheckPrintCoverStatus(IOPOSPOSPrinter printer)
+        {
+            try
+            {
+                // Implement logic to check if printer cover is open
+                bool isOpen = printer.CapCoverSensor; // Example: Assuming there is a property like PrinterCoverOpen
+                OnPrinterCoverEvnet(isOpen);
+            }
+            catch 
+            {
+            }
+        }
+
         public void printerOpen(string deviceName, IOPOSPOSPrinter printer)
         {
-            int nRet;
-            //int bRet;
-            string result;
             try
             {
 
-                nRet = printer.Open(deviceName);
-                result = Constant.getState((long)nRet);
+                int nRet = printer.Open(deviceName);
+                string result = Constant.getState((long)nRet);
+                if (nRet != 0)
+                    throw new Exception($"[Open Error] : {result}");
                 OnPrinterEvent($"Open: {result}");
 
                 nRet = printer.ClaimDevice(5000);
                 result = Constant.getState((long)nRet);
+                if (nRet != 0)
+                    throw new Exception($"[Claim Error] : {result}");
+
+
                 OnPrinterEvent($"ClaimDevice: {result}");
 
+                
                 printer.DeviceEnabled = true;
                 OnPrinterEvent("DeviceEnabled set to true");
 
             }
             catch(Exception ex)
             {
-                OnPrinterEvent($"Error: {ex.Message}");
+                HandleError(ex);
             }
         }
 
         public void printerClose(IOPOSPOSPrinter printer)
         {
-            int nRet;
-
             try
             {
                 printer.DeviceEnabled = false;
                 printer.ReleaseDevice();
 
-                nRet = printer.Close();
+                int nRet = printer.Close();
 
-                textBoxPrinterState.Text = Constant.getState(nRet);
-                richLogBox.AppendText(Constant.getState(nRet) + "\n");
+                OnPrinterEvent($"[Close] : {Constant.getState(nRet)}");
 
             }
             catch (Exception ex)
             {
-                richLogBox.AppendText("[Error]Close Failed");
+                HandleError(ex);
             }
         }
 
+        public void printCut(IOPOSPOSPrinter printer,int percent)
+        {
+            try
+            {
+                printer.CutPaper(percent);
+                OnPrinterEvent($"Cut paper command sent (percent: {percent})");
+            }
+            catch (Exception ex)
+            {
+                HandleError(ex);
+            }
+        }
+
+        private void HandleError(Exception ex)
+        {
+            OnPrinterEvent("failed");
+        }
+
+        public void printBitmap(OPOSPOSPrinter printer,int bitmapNumber,int station, string fileName,int width,int alignment)
+        {
+            try
+            {
+
+                printer.SetBitmap(bitmapNumber, station, fileName, width, alignment);
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
 
     }
 }

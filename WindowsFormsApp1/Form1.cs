@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using OposPOSPrinter_CCO;
-
+using System.Drawing;
 
 namespace WindowsFormsApp1
 {
@@ -23,14 +23,13 @@ namespace WindowsFormsApp1
 
 
 
-
         //OPOSPOSPrinter printer = new OPOSPOSPrinter();
         OPOSPOSPrinter printer = new OPOSPOSPrinter();
         private Printer _printer;
         String deviceName;
         const string registryPath = @"SOFTWARE\oleforretail\ServiceOPOS\POSPrinter";
         private Bitmap imageToPrint;
-
+        string imagePath;
         bool bRet = false;
 
         public Form1()
@@ -134,12 +133,38 @@ namespace WindowsFormsApp1
 
         private void btnFullCut_Click(object sender, EventArgs e)
         {
-            printer.CutPaper(100);
+            try
+            {
+                _printer.printCut(printer,100);
+            }
+            catch (Exception)
+            {
 
+            }
         }
 
         private void btnImageLoad_Click(object sender, EventArgs e)
         {
+            using (OpenFileDialog open = new OpenFileDialog())
+            {
+                try
+                {
+                    open.Filter = "Image Files|*.bmp";
+                    if (open.ShowDialog() == DialogResult.OK)
+                    {
+                        imagePath = open.FileName;
+                        //하드에 저장
+
+                        Bitmap bitmap = LoadBitmapFromDisk(imagePath);
+
+                    }
+                }
+                finally
+                {
+                    if (open != null)
+                        open.Dispose();
+                }
+            }
             printer.SetBitmap(1, 0, "", 512, 0);
             printer.PrintNormal(0, "");
 
@@ -153,6 +178,22 @@ namespace WindowsFormsApp1
             File.OpenImageFile();
 
         }
+
+        public Bitmap LoadBitmapFromDisk(string filePath)
+        {
+            Bitmap bitmap = null;
+            try
+            {
+                bitmap = new Bitmap(filePath);
+            }
+            catch (Exception ex)
+            {
+                richLogBox.AppendText($"Failed to load bitmap from {filePath}: {ex.Message}");
+            }
+            return bitmap;
+        }
+
+
 
         private void btnNomalPrint_Click(object sender, EventArgs e)
         {
