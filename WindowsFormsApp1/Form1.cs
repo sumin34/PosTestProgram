@@ -9,7 +9,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using OposPOSPrinter_CCO;
-using System.Drawing;
+using OposCashDrawer_CCO;
+using OposScanner_CCO;
+using Constants;
+using Printer;
+using Drawer;
 
 namespace WindowsFormsApp1
 {
@@ -21,75 +25,100 @@ namespace WindowsFormsApp1
         const int PTR_TP_TRANSACTION = 11;
         const int PTR_TP_NORMAL = 12;
 
-
-
+        
         //OPOSPOSPrinter printer = new OPOSPOSPrinter();
         OPOSPOSPrinter printer = new OPOSPOSPrinter();
-        private Printer _printer;
+        OPOSCashDrawer drawer = new OPOSCashDrawer();
+        //private Printer _printer;
+        PrinterCtr _printer = new PrinterCtr();
+        Scanner.Scanner _scanner;
+        Drawer.Drawer _drawer = new Drawer.Drawer();
+        
         String deviceName;
-        const string registryPath = @"SOFTWARE\oleforretail\ServiceOPOS\POSPrinter";
+        const string printerRegPath = @"SOFTWARE\oleforretail\ServiceOPOS\POSPrinter";
+        const string scannerRegPath = @"SOFTWARE\WOW6432Node\oleforretail\ServiceOPOS\Scanner";
+        const string cdRegPath = @"SOFTWARE\WOW6432Node\oleforretail\ServiceOPOS\CashDrawer";
+
         private Bitmap imageToPrint;
         string imagePath;
         bool bRet = false;
-
         public Form1()
         {
             InitializeComponent();
-            LoadDeviceNames();
-            _printer = new Printer();
-            _printer.PrinterEvent += OnPrinterEvent;
+            _scanner = new Scanner.Scanner(this);
+            //_printer = Printer.PrinterCtr;
+            //Printer.PrinterCtr.PrinterEvent() += OnPrinterEvent;
+            //////////////////////////////////////////////////////////////////////////////////
+            ///gpt 이벤트 구독
+            _scanner.DataReceived += OnScannerDataReceived;
+            //////////////////////////////////////////////////////////////////////////////////////
+            updateComboboxRegList("DefaultPOSPrinter", printerRegPath,comboDeviceName);
+            updateComboboxRegList("DefaultScanner", scannerRegPath, comboBoxScanner);
+            updateComboboxRegList("DefaultCashDrawer", cdRegPath, comboBoxCD);
         }
 
-        private void OnPrinterEvent(object sender, PrinterEventArgs e)
+        /// <summary>
+        /// gpt////////////////////////////////////////////////////////////////////////////
+        /// 
+        /// </summary>
+        /// 
+
+        private void OnScannerDataReceived(string decodedData)
         {
-            if (richLogBox.InvokeRequired)
+            // Ensure this is called on the UI thread
+            if (InvokeRequired)
             {
-                richLogBox.Invoke(new Action<string>(AppendToRichTextBox), e.Message);
+                Invoke(new Action<string>(OnScannerDataReceived), decodedData);
             }
             else
             {
-                AppendToRichTextBox(e.Message);
+                richSDBox.AppendText(decodedData);
+            }
+        }
+        
+    /// <summary>
+    /// ///////////////////////////////////////////////////////////////////////////////////
+    /// </summary>
+    private void InitializePrinter()
+        {
+
+        }
+
+        private void OnPrinterEvent(object sender)
+        {
+            if (richLogBox.InvokeRequired)
+            {
+               // richLogBox.Invoke(new Action<string>(AppendToRichTextBox), e.Message);
+            }
+            else
+            {
+                //AppendToRichTextBox(e.Message);
             }
         }
 
-        private void AppendToRichTextBox(string message)
+        public void AppendToRichTextBox(string message)
         {
             richLogBox.AppendText(message + Environment.NewLine);
         }
 
-
-        private void LoadDeviceNames()
+        public void AppendToSDRichTextBox(string message)
         {
-            deviceName = "DefaultPOSPrinter";
-            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryPath))
-            {
-                comboDeviceName.Items.Add(deviceName);
-                comboDeviceName.SelectedIndex = 0;
-                if (key != null)
-                {
-                    foreach (string name in key.GetSubKeyNames())
-                        comboDeviceName.Items.Add(name);
-                }
-                else
-                {
-                    Console.WriteLine("Registry key not found");
-                }
-            }
-
+            richSDBox.AppendText(message + Environment.NewLine);
         }
+
 
         private void btnOpen_Click(object sender, EventArgs e)
         {
+            bool bRet;
             deviceName = comboDeviceName.Text;
-            _printer.printerOpen(deviceName, printer);
+            
+            bRet = _printer.printerOpen(deviceName, printer);
+            
+            if (bRet)
+                InitializePrinter();
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
-        {
-
-        }
-
-        private void tabPage1_Click(object sender, EventArgs e)
         {
 
         }
@@ -114,16 +143,12 @@ namespace WindowsFormsApp1
 
         }
 
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
-
         private void btnClose_Click(object sender, EventArgs e)
         {
             deviceName = comboDeviceName.Text;
             _printer.printerClose(printer);
             
+
         }
 
         private void btnDelBitmap_Click(object sender, EventArgs e)
@@ -152,11 +177,7 @@ namespace WindowsFormsApp1
                     open.Filter = "Image Files|*.bmp";
                     if (open.ShowDialog() == DialogResult.OK)
                     {
-                        imagePath = open.FileName;
-                        //하드에 저장
-
-                        Bitmap bitmap = LoadBitmapFromDisk(imagePath);
-
+                        printer.SetBitmap(1, PTR_S_RECEIPT, open.FileName,512,(int)Constant.PTR_BC_CENTER);
                     }
                 }
                 finally
@@ -199,14 +220,16 @@ namespace WindowsFormsApp1
         {
             try
             {
-                printer.TransactionPrint(PTR_S_RECEIPT,PTR_TP_TRANSACTION);
+                //printer.TransactionPrint(PTR_S_RECEIPT,PTR_TP_TRANSACTION);
                 printer.PrintNormal(PTR_S_RECEIPT, "test");
                 printer.PrintNormal(PTR_S_RECEIPT, "12345678901234567890123456789012345678901234567890");
-                printer.TransactionPrint(PTR_S_RECEIPT,PTR_TP_NORMAL);
+                //printer.TransactionPrint(PTR_S_RECEIPT,PTR_TP_NORMAL);
+                printer.CutPaper(95);
+
             }
             catch
             {
-                richLogBox.AppendText("\n프린트 실패");
+                AppendToRichTextBox("\n프린트 실패");
             }
         }
 
@@ -219,14 +242,12 @@ namespace WindowsFormsApp1
             try
             {
                 nRet = printer.Open(devicename);
-                textBoxPrinterState.Text = Constant.getState(nRet);
                 if (nRet != 0)
                 {
                     MessageBox.Show("Printer Open Error");
                     return bRet;
                 }
                 nRet = printer.ClaimDevice(5000);
-                textBoxPrinterState.Text = Constant.getState(nRet);
                 if (nRet != 0)
                 {
                     MessageBox.Show("Printer Claim Error");
@@ -246,7 +267,7 @@ namespace WindowsFormsApp1
             catch (Exception ex)
             {
                 return bRet;
-                richLogBox.AppendText("[Exception]Open failed");
+                AppendToRichTextBox("[Exception]Open failed");
             }
         }
         public bool PrinterClose(OPOSPOSPrinter OposPrinter)
@@ -256,6 +277,155 @@ namespace WindowsFormsApp1
 
         private void button2_Click(object sender, EventArgs e)
         {
+            
+        }
+
+        private void btnOpenDrawer_Click(object sender, EventArgs e)
+        {
+            
+        }
+
+        private void btnImagePrint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                int bitmapNumber = 1;
+                _printer.printBitmap(printer, bitmapNumber, PTR_S_RECEIPT, imagePath, (int)Constant.PTR_BM_ASIS, (int)Constant.PTR_BM_CENTER);
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+
+        private void Box_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnPrtBarcode_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                /*int textPosition = comboBCPosition.Text;
+                printer.PrintBarCode(PTR_S_RECEIPT, boxBarcodeNum.Text, ,textPosition);*/
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+
+        private void btnTransactionPrint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                printer.TransactionPrint(PTR_S_RECEIPT,PTR_TP_TRANSACTION);
+                printer.PrintNormal(PTR_S_RECEIPT, "test");
+                printer.PrintNormal(PTR_S_RECEIPT, "12345678901234567890123456789012345678901234567890");
+                printer.TransactionPrint(PTR_S_RECEIPT,PTR_TP_NORMAL);
+                printer.CutPaper(95);
+            }
+            catch
+            {
+                AppendToRichTextBox("\n프린트 실패");
+            }
+        }
+
+        private void btnClearLogBox_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                richLogBox.Clear();
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void groupBox1_Enter_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void richLogBox_TextChanged_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            AppendToRichTextBox(_scanner.scannerDE());
+        }
+
+
+        private void btnCDOpen_Click(object sender, EventArgs e)
+        {
+            
+        }
+
+        private void updateComboboxRegList(string defaultName, string regPath,ComboBox comboBox)
+        {
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(regPath))
+            {
+                comboBox.Items.Add(defaultName);
+                comboBox.SelectedIndex = 0;
+                if (key != null)
+                {
+                    foreach (string name in key.GetSubKeyNames())
+                        comboBox.Items.Add(name);
+                }
+                else
+                {
+                    AppendToRichTextBox("Registry key not found");
+                    Console.WriteLine("Registry key not found");
+                }
+            }
+        }
+
+        private void btnDECD_Click(object sender, EventArgs e)
+        {
+            try
+            {
+
+            } catch (Exception ex) {
+                     
+            }
+        }
+
+        private void btnScannerOpen_Click(object sender, EventArgs e)
+        {
+            int nRet;
+            string sRet;
+            deviceName = comboBoxScanner.Text;
+           
+            sRet = _scanner.scannerOpen(deviceName);
+            AppendToRichTextBox(sRet);
+        }
+
+        private void btnCDScanner_Click(object sender, EventArgs e)
+        {
+            int nRet;
+            deviceName = comboBoxScanner.Text;
+            AppendToRichTextBox(_scanner.scannerClaim());
+        }
+
+        private void btnScannerClose_Click(object sender, EventArgs e)
+        {
+            _scanner.scannerClose();
+        }
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            int test = 111;
+
+            _scanner.Scanner_DataEvent(test);
             
         }
     }
